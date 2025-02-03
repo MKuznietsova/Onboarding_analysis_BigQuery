@@ -1,0 +1,15 @@
+WITH t AS (
+  SELECT 
+    event_name,
+    (select value.string_value from d.event_params where key = 'page_location' AND event_name = 'session_start') AS page_loc,
+    user_pseudo_id || CAST((select value.int_value from d.event_params where key = 'ga_session_id') AS STRING) AS unique_sessions
+  FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_2020*` d
+  WHERE event_date like '2020%')
+  SELECT
+  TRIM(SPLIT(t.page_loc, '.com/')[offset(1)]) AS page_path,
+  COUNT(DISTINCT unique_sessions) AS user_sessions_count,
+  COUNT(DISTINCT CASE WHEN event_name = 'purchase' THEN unique_sessions END) AS count_purchase,
+  COUNT(DISTINCT CASE WHEN event_name = 'purchase' THEN unique_sessions END)/COUNT(DISTINCT unique_sessions) AS conv_to_purchase
+  FROM t
+  GROUP BY t.page_loc
+  LIMIT 5
