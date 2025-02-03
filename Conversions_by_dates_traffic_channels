@@ -1,0 +1,33 @@
+WITH t AS (
+  SELECT 
+    DATE (timestamp_micros(d.event_timestamp)) as event_date,
+    event_name,
+    traffic_source.source as source,
+    traffic_source.medium as medium,
+    traffic_source.name as campaign,
+    user_pseudo_id || CAST((select value.int_value from d.event_params where key = 'ga_session_id') AS STRING) AS unique_sessions
+  FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` d
+  WHERE event_name in ('session_start', 'add_to_cart', 'begin_checkout', 'purchase')),
+  count_table AS (
+  SELECT
+    t.event_date,
+    source,
+    medium,
+    campaign,
+    COUNT(DISTINCT unique_sessions) AS user_sessions_count,
+    COUNT(DISTINCT CASE WHEN event_name = 'add_to_cart' THEN unique_sessions END) AS count_add_to_cart,
+    COUNT(DISTINCT CASE WHEN event_name = 'begin_checkout' THEN unique_sessions END) AS count_begin_checkout,
+    COUNT(DISTINCT CASE WHEN event_name = 'purchase' THEN unique_sessions END) AS count_purchase
+  FROM t
+  GROUP BY 1,2,3,4)
+SELECT
+event_date,
+source,
+medium,
+campaign,
+user_sessions_count,
+ROUND (count_add_to_cart/user_sessions_count, 3) AS visit_to_cart,
+ROUND (count_begin_checkout/user_sessions_count, 3) AS visit_to_checkout,
+ROUND (count_purchase/user_sessions_count, 3) AS visit_to_purchase
+FROM count_table c
+--LIMIT 5
