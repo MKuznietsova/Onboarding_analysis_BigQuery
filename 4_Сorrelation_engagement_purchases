@@ -1,0 +1,25 @@
+WITH t AS (
+  SELECT 
+    event_name,
+    user_pseudo_id || CAST((select value.int_value from d.event_params where key = 'ga_session_id') AS STRING) AS unique_sessions,
+    CAST((select value.string_value from d.event_params where key = 'session_engaged') AS NUMERIC) AS user_engaged,
+    (select value.int_value from d.event_params where key = 'engagement_time_msec') AS event_time
+  FROM `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` d),
+  main_table AS (
+  SELECT
+    unique_sessions,
+    user_engaged,
+    SUM (event_time) AS session_time,
+    COUNT(DISTINCT CASE WHEN event_name = 'purchase' THEN unique_sessions END) AS count_purchase
+  FROM t
+  GROUP BY 1,2)
+SELECT
+    unique_sessions,
+    user_engaged,
+    session_time,
+    count_purchase,
+    CORR (user_engaged, count_purchase) AS engage_to_purchase,
+    CORR (session_time, count_purchase) AS time_to_purchase,
+FROM main_table
+GROUP BY 1,2,3,4
+LIMIT 5
